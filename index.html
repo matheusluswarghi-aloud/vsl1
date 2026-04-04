@@ -203,9 +203,59 @@
 
     /*
      * ── Integração Vturb ──
-     * Cole abaixo o script/div fornecido pela Vturb.
-     * O botão de compra nativo aparecerá automaticamente
+     * O botão de compra nativo aparece automaticamente
      * no momento configurado dentro do vídeo.
-     *
-     * Exemplo:
-     *
+     */
+
+    /* ── UTM Tracker para botão Vturb (Hotmart sck) ── */
+    (function () {
+      var UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'campaign_id'];
+      var params = new URLSearchParams(window.location.search);
+
+      /* Monta o valor do sck com as UTMs presentes */
+      var parts = [];
+      UTM_KEYS.forEach(function (key) {
+        var val = params.get(key);
+        if (val) parts.push(key + '=' + encodeURIComponent(val));
+      });
+      if (!parts.length) return; /* Nenhuma UTM na URL, nada a fazer */
+
+      var sckValue = parts.join('%26'); /* separador literal %26 */
+
+      function patchLinks() {
+        var anchors = document.querySelectorAll('vturb-anchor-button a[href*="pay.hotmart.com"]');
+        anchors.forEach(function (a) {
+          var href = a.getAttribute('href');
+          if (!href || href.indexOf('sck=') !== -1) return; /* já possui sck */
+          var separator = href.indexOf('?') !== -1 ? '&' : '?';
+          a.setAttribute('href', href + separator + 'sck=' + sckValue);
+        });
+        /* Atualiza também o href do próprio <vturb-anchor-button> */
+        var buttons = document.querySelectorAll('vturb-anchor-button[href*="pay.hotmart.com"]');
+        buttons.forEach(function (btn) {
+          var href = btn.getAttribute('href');
+          if (!href || href.indexOf('sck=') !== -1) return;
+          var separator = href.indexOf('?') !== -1 ? '&' : '?';
+          btn.setAttribute('href', href + separator + 'sck=' + sckValue);
+        });
+        return anchors.length > 0;
+      }
+
+      /* Tenta imediatamente */
+      if (patchLinks()) return;
+
+      /* Observa o DOM até o botão da Vturb aparecer (lazy load) */
+      var observer = new MutationObserver(function () {
+        if (patchLinks()) observer.disconnect();
+      });
+      observer.observe(document.body || document.documentElement, {
+        childList: true,
+        subtree: true
+      });
+
+      /* Timeout de segurança: para de observar após 60s */
+      setTimeout(function () { observer.disconnect(); }, 60000);
+    })();
+  </script>
+</body>
+</html>
