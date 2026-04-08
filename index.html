@@ -18,6 +18,86 @@ fbq('track', 'PageView');
 src="https://www.facebook.com/tr?id=1663477297615180&ev=PageView&noscript=1"
 /></noscript>
 <!-- End Meta Pixel Code -->
+  <!-- UTM → SCK Interceptor v4.1: click takeover no <head> -->
+  <script>
+  (function() {
+    var params = new URLSearchParams(window.location.search);
+    var utmKeys = ['utm_source','utm_medium','utm_campaign','utm_term','utm_content'];
+    var captured = {};
+    var hasUtm = false;
+
+    utmKeys.forEach(function(k) {
+      var v = params.get(k);
+      if (v) { captured[k] = v; hasUtm = true; }
+    });
+
+    if (!hasUtm) return;
+
+    var sckParts = [];
+    utmKeys.forEach(function(k) {
+      if (captured[k]) {
+        sckParts.push(k + '=' + encodeURIComponent(captured[k]));
+      }
+    });
+    var sckValue = sckParts.join('%26');
+
+    var looseUtms = ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','campaign_id'];
+
+    function transformUrl(rawUrl) {
+      var qIdx = rawUrl.indexOf('?');
+      if (qIdx === -1) return rawUrl + '?sck=' + sckValue;
+      var base = rawUrl.substring(0, qIdx);
+      var query = rawUrl.substring(qIdx + 1);
+      var kept = [];
+      query.split('&').forEach(function(pair) {
+        var eqIdx = pair.indexOf('=');
+        var key = eqIdx > -1 ? pair.substring(0, eqIdx) : pair;
+        try { key = decodeURIComponent(key); } catch(e) {}
+        if (looseUtms.indexOf(key) === -1 && key !== 'sck') {
+          kept.push(pair);
+        }
+      });
+      var finalQuery = kept.join('&');
+      finalQuery += (finalQuery ? '&' : '') + 'sck=' + sckValue;
+      return base + '?' + finalQuery;
+    }
+
+    function isHotmart(url) {
+      return typeof url === 'string' && url.indexOf('pay.hotmart.com') !== -1;
+    }
+
+    // CAMADA 1: click capture — bloqueia o click ANTES do Vturb processar,
+    // lê o href atual (com src do Vturb), transforma, e navega manualmente.
+    // stopImmediatePropagation impede que handleOpenLink do Vturb sobrescreva.
+    document.addEventListener('click', function(e) {
+      var a = e.target.closest ? e.target.closest('a[href]') : null;
+      if (!a) return;
+      var href = a.href || a.getAttribute('href');
+      if (!isHotmart(href)) return;
+
+      e.preventDefault();
+      e.stopImmediatePropagation();
+
+      var finalUrl = transformUrl(href);
+      var target = a.getAttribute('target');
+
+      if (target === '_blank') {
+        window._sckOriginalOpen.call(window, finalUrl, '_blank');
+      } else {
+        window.location.href = finalUrl;
+      }
+    }, true);
+
+    // CAMADA 2: monkey-patch window.open (fallback para open_in_new_tab: true)
+    window._sckOriginalOpen = window.open;
+    window.open = function(url, target, features) {
+      if (isHotmart(url)) {
+        url = transformUrl(url);
+      }
+      return window._sckOriginalOpen.call(window, url, target, features);
+    };
+  })();
+  </script>
   <!-- VTurb Player Optimizer -->
   <script>!function(i,n){i._plt=i._plt||(n&&n.timeOrigin?n.timeOrigin+n.now():Date.now())}(window,performance);</script>
   <link rel="preload" href="https://scripts.converteai.net/ac3c2b1e-9bec-4b10-8bf2-0e8eb21a9d35/ab-test/69d3ef6b8a800605e3888512/player.js" as="script">
@@ -204,6 +284,7 @@ src="https://www.facebook.com/tr?id=1663477297615180&ev=PageView&noscript=1"
       </div>
     </div>
   </footer>
+
 
 </body>
 </html>
